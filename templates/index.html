@@ -1,0 +1,116 @@
+<!-- templates/index.html -->
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Studio — Text ↔ Image</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>AI Studio</h1>
+    <p class="subtitle">Teks → Gambar & Gambar → Teks — Demo sederhana</p>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <div class="tabs">
+        <button id="tab-g2t" class="active">Gambar → Teks</button>
+        <button id="tab-t2g">Teks → Gambar</button>
+      </div>
+
+      <section id="panel-g2t" class="panel">
+        <h2>Gambar → Teks (Caption)</h2>
+        <form id="form-caption">
+          <input type="file" id="input-image" accept="image/*" required />
+          <button type="submit">Generate Caption</button>
+        </form>
+        <div id="caption-result" class="result"></div>
+      </section>
+
+      <section id="panel-t2g" class="panel hidden">
+        <h2>Teks → Gambar</h2>
+        <form id="form-generate">
+          <textarea id="prompt" placeholder="Masukkan prompt, contohnya: A futuristic city at sunset, cinematic, UHD"></textarea>
+          <div class="row">
+            <label>Guidance: <input id="guidance" type="range" min="1" max="20" value="7.5" step="0.1"></label>
+            <label>Steps: <input id="steps" type="number" min="1" max="100" value="25"></label>
+          </div>
+          <button type="submit">Generate Image</button>
+        </form>
+        <div id="image-result" class="result"></div>
+      </section>
+    </div>
+
+    <footer class="foot">Simpan HF_TOKEN sebagai environment variable di Render. Untuk performa lebih baik gunakan plan GPU.</footer>
+  </main>
+
+<script>
+// Tab logic
+const tabG2T = document.getElementById('tab-g2t');
+const tabT2G = document.getElementById('tab-t2g');
+const panelG2T = document.getElementById('panel-g2t');
+const panelT2G = document.getElementById('panel-t2g');
+
+tabG2T.onclick = () => {
+  tabG2T.classList.add('active');
+  tabT2G.classList.remove('active');
+  panelG2T.classList.remove('hidden');
+  panelT2G.classList.add('hidden');
+}
+tabT2G.onclick = () => {
+  tabT2G.classList.add('active');
+  tabG2T.classList.remove('active');
+  panelT2G.classList.remove('hidden');
+  panelG2T.classList.add('hidden');
+}
+
+// Caption form
+const formCaption = document.getElementById('form-caption');
+formCaption.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('input-image');
+  if (!fileInput.files.length) return alert('Pilih gambar dulu');
+  const fd = new FormData();
+  fd.append('image', fileInput.files[0]);
+  document.getElementById('caption-result').innerText = 'Processing...';
+  const res = await fetch('/api/caption', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.caption) {
+    document.getElementById('caption-result').innerText = data.caption;
+  } else {
+    document.getElementById('caption-result').innerText = 'Error: ' + (data.error || 'Unknown');
+  }
+});
+
+// Generate form
+const formGen = document.getElementById('form-generate');
+formGen.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) return alert('Masukkan prompt');
+  const guidance = document.getElementById('guidance').value;
+  const steps = document.getElementById('steps').value;
+  const fd = new FormData();
+  fd.append('prompt', prompt);
+  fd.append('guidance', guidance);
+  fd.append('steps', steps);
+  document.getElementById('image-result').innerText = 'Generating image... (this can be slow on CPU)';
+  const res = await fetch('/api/generate', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.image) {
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + data.image;
+    img.alt = prompt;
+    img.style.maxWidth = '100%';
+    const container = document.getElementById('image-result');
+    container.innerHTML = '';
+    container.appendChild(img);
+  } else {
+    document.getElementById('image-result').innerText = 'Error: ' + (data.error || 'Unknown');
+  }
+});
+</script>
+</body>
+</html>
